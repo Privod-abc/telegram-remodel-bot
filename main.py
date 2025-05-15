@@ -5,7 +5,7 @@ from telegram.ext import (ApplicationBuilder, CommandHandler, MessageHandler,
                           ContextTypes, ConversationHandler, filters)
 
 # Conversation states
-ROOM_TYPE, LOCATION, CLIENT_ISSUES, CLIENT_GOALS, WHAT_DONE, SPECIAL_FEATURES, MEDIA_BEFORE, MEDIA_AFTER, MEDIA_VISUAL = range(10)
+ROOM_TYPE, LOCATION, CLIENT_ISSUES, CLIENT_GOALS, WHAT_DONE, SPECIAL_FEATURES, MEDIA_BEFORE, MEDIA_AFTER, MEDIA_VISUAL, DONE = range(10)
 
 # Logging setup
 logging.basicConfig(
