@@ -11,11 +11,5 @@
       "src": "/api/webhook",
       "dest": "api/webhook.js"
     }
-  ],
-  "env": {
-    "BOT_TOKEN": "@bot_token",
-    "GOOGLE_SERVICE_ACCOUNT_KEY": "@google_service_account_key",
-    "GOOGLE_SHEET_ID": "@google_sheet_id",
-    "ADMIN_CHAT_ID": "@admin_chat_id"
-  }
+  ]
 }
