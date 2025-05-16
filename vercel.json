@@ -2,29 +2,26 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/index.py",
+      "src": "api/*.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/api",
-      "methods": ["POST"],
-      "dest": "api/index.py"
+      "dest": "/api/api.py"
     },
     {
       "src": "/set-webhook",
-      "methods": ["GET"],
-      "dest": "api/index.py"
+      "dest": "/api/set-webhook.py"
     },
     {
       "src": "/webhook-info",
-      "methods": ["GET"],
-      "dest": "api/index.py"
+      "dest": "/api/webhook-info.py"
     },
     {
       "src": "/(.*)",
-      "dest": "api/index.py"
+      "dest": "/api/index.py"
     }
   ]
 }
