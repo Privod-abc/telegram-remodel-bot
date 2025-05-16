@@ -2,21 +2,36 @@ import os
 import logging
 import asyncio
 import nest_asyncio
+from flask import Flask
+from threading import Thread
+
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
     ContextTypes, ConversationHandler, filters
 )
 
-# Conversation states
+# === Flask keep-alive for Render ===
+app_keep_alive = Flask(__name__)
+
+@app_keep_alive.route('/')
+def home():
+    return '✅ Telegram bot is running!'
+
+def run_flask():
+    app_keep_alive.run(host='0.0.0.0', port=8080)
+
+# === States ===
 ROOM_TYPE, LOCATION, CLIENT_ISSUES, CLIENT_GOALS, WHAT_DONE, SPECIAL_FEATURES, MEDIA_BEFORE, MEDIA_AFTER, MEDIA_VISUAL, DONE = range(10)
 
-# Logging setup
+# === Logging ===
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+# === Conversation Handlers ===
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -107,6 +122,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❌ Project entry canceled.")
     return ConversationHandler.END
 
+# === Main Launch ===
+
 async def main():
     app = ApplicationBuilder().token(os.getenv("BOT_TOKEN")).build()
 
@@ -140,4 +157,5 @@ async def main():
 
 if __name__ == '__main__':
     nest_asyncio.apply()
+    Thread(target=run_flask).start()
     asyncio.run(main())
