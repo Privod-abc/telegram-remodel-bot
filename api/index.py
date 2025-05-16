@@ -1,42 +1,31 @@
 import os
 import logging
 import asyncio
-import nest_asyncio
 from flask import Flask, request
 from telegram import Update, Bot
 from telegram.ext import (
-    ApplicationBuilder, CommandHandler, MessageHandler,
+    Application, ApplicationBuilder, CommandHandler, MessageHandler,
     ContextTypes, ConversationHandler, filters
 )
 
-nest_asyncio.apply()
+# Flask app
 app = Flask(__name__)
+
+# Telegram Bot config
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(BOT_TOKEN)
 
-CLIENT_NAME, ROOM_TYPE, LOCATION, CLIENT_GOAL, WHAT_DONE, MATERIALS, FEATURES, GDRIVE = range(8)
-
+# Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("api.index")
 
-telegram_app = ApplicationBuilder().token(BOT_TOKEN).build()
+# States
+CLIENT_NAME, ROOM_TYPE, LOCATION, CLIENT_GOAL, WHAT_DONE, MATERIALS, FEATURES, GDRIVE = range(8)
 
-# Notify admin
-async def notify_admin(data: dict):
-    text = (
-        f"📢 *New Project Submitted!*\n\n"
-        f"👤 Client: {data.get('client_name')}\n"
-        f"🏗️ Room: {data.get('room_type')}\n"
-        f"📍 Location: {data.get('location')}\n"
-        f"🌟 Goal: {data.get('goal')}\n"
-        f"💪 Work done: {data.get('what_done')}\n"
-        f"🧱 Materials: {data.get('materials')}\n"
-        f"✨ Features: {data.get('features')}\n"
-        f"📂 Drive: {data.get('drive_link')}"
-    )
-    await bot.send_message(chat_id=130060469, text=text, parse_mode="Markdown")
+# Telegram Application
+telegram_app: Application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-# Steps
+# Handler functions
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     await update.message.reply_text("🙋‍♂️ What is the client’s name?")
@@ -54,16 +43,32 @@ async def get_goal(update, context): return await get_or_skip(update, context, "
 async def get_done(update, context): return await get_or_skip(update, context, "what_done", MATERIALS, "🧱 What materials were used? (names, colors)")
 async def get_materials(update, context): return await get_or_skip(update, context, "materials", FEATURES, "✨ Unique features or smart solutions?")
 async def get_features(update, context): return await get_or_skip(update, context, "features", GDRIVE, "📂 Paste the Google Drive folder link")
+
 async def get_drive(update, context):
     context.user_data["drive_link"] = update.message.text
     await update.message.reply_text("🎉 Project saved. Thank you!")
-    await notify_admin(context.user_data)
+    await bot.send_message(
+        chat_id=130060469,
+        text=(
+            f"📢 *New Project Submitted!*\n\n"
+            f"👤 Client: {context.user_data.get('client_name') or '—'}\n"
+            f"🏗️ Room: {context.user_data.get('room_type') or '—'}\n"
+            f"📍 Location: {context.user_data.get('location') or '—'}\n"
+            f"🌟 Goal: {context.user_data.get('goal') or '—'}\n"
+            f"💪 Work done: {context.user_data.get('what_done') or '—'}\n"
+            f"🧱 Materials: {context.user_data.get('materials') or '—'}\n"
+            f"✨ Features: {context.user_data.get('features') or '—'}\n"
+            f"📂 Drive: {context.user_data.get('drive_link') or '—'}"
+        ),
+        parse_mode="Markdown"
+    )
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❌ Project canceled.")
     return ConversationHandler.END
 
+# Conversation handler
 telegram_app.add_handler(ConversationHandler(
     entry_points=[CommandHandler("start", start)],
     states={
@@ -80,19 +85,16 @@ telegram_app.add_handler(ConversationHandler(
     allow_reentry=True
 ))
 
+# Webhook endpoint
 @app.route("/", methods=["POST"])
 def webhook():
     try:
         update = Update.de_json(request.get_json(force=True), bot)
 
-        async def process():
-            await telegram_app.initialize()
-            await telegram_app.process_update(update)
-            await telegram_app.shutdown()
-
-        asyncio.run(process())
+        # Обрабатываем update без остановки приложения
+        asyncio.get_event_loop().create_task(telegram_app.process_update(update))
         return "ok", 200
 
     except Exception as e:
-        logger.exception(f"Exception on / [POST]: {e}")
+        logger.exception(f"Webhook error: {e}")
         return "error", 500
