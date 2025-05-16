@@ -4,24 +4,25 @@ import asyncio
 import nest_asyncio
 from flask import Flask
 from threading import Thread
-
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
     ContextTypes, ConversationHandler, filters
 )
+from datetime import datetime
+import platform
 
-# === Flask keep-alive for Render ===
+# === Flask (keep-alive for Render port 8080) ===
 app_keep_alive = Flask(__name__)
 
 @app_keep_alive.route('/')
 def home():
-    return '✅ Telegram bot is running!'
+    return '✅ Bot is running.'
 
 def run_flask():
     app_keep_alive.run(host='0.0.0.0', port=8080)
 
-# === States ===
+# === Conversation states ===
 ROOM_TYPE, LOCATION, CLIENT_ISSUES, CLIENT_GOALS, WHAT_DONE, SPECIAL_FEATURES, MEDIA_BEFORE, MEDIA_AFTER, MEDIA_VISUAL, DONE = range(10)
 
 # === Logging ===
@@ -31,8 +32,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# === Conversation Handlers ===
-
+# === Handlers ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🏗️ Let's start a new remodeling project.\n"
@@ -122,8 +122,24 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❌ Project entry canceled.")
     return ConversationHandler.END
 
-# === Main Launch ===
+# === Debug Command ===
+async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    launch_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    env = os.getenv("ENV", "not set")
+    token = os.getenv("BOT_TOKEN", "none")[:10] + "..."
 
+    debug_info = (
+        f"🤖 *Bot Debug Info*\n\n"
+        f"📅 Launch Time: `{launch_time}`\n"
+        f"🖥 Platform: `{platform.system()} {platform.release()}`\n"
+        f"🌐 ENV: `{env}`\n"
+        f"🔐 BOT_TOKEN: `{token}`\n"
+        f"📁 Current dir: `{os.getcwd()}`"
+    )
+
+    await update.message.reply_text(debug_info, parse_mode="Markdown")
+
+# === Main ===
 async def main():
     app = ApplicationBuilder().token(os.getenv("BOT_TOKEN")).build()
 
@@ -153,9 +169,12 @@ async def main():
     )
 
     app.add_handler(conv_handler)
+    app.add_handler(CommandHandler("debug", debug))
+
     await app.run_polling()
 
 if __name__ == '__main__':
     nest_asyncio.apply()
     Thread(target=run_flask).start()
-    asyncio.run(main())
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
