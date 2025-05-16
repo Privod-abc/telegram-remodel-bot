@@ -1,4 +1,2 @@
-python-telegram-bot==20.7
-flask==2.3.3
-nest_asyncio==1.5.8
-httpx
+flask==2.0.1
+httpx==0.23.0
