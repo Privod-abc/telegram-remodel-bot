@@ -1,8 +1,10 @@
 import os
 import logging
 from telegram import Update
-from telegram.ext import (ApplicationBuilder, CommandHandler, MessageHandler,
-                          ContextTypes, ConversationHandler, filters)
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler, MessageHandler,
+    ContextTypes, ConversationHandler, filters
+)
 
 # Conversation states
 ROOM_TYPE, LOCATION, CLIENT_ISSUES, CLIENT_GOALS, WHAT_DONE, SPECIAL_FEATURES, MEDIA_BEFORE, MEDIA_AFTER, MEDIA_VISUAL, DONE = range(10)
@@ -70,7 +72,6 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE, categ
 
     await update.message.reply_text("✅ File saved. You can send more or type /next to continue.")
 
-    # Delete file after processing
     try:
         os.remove(file_path)
         logger.info(f"Deleted file after processing: {file_path}")
@@ -105,37 +106,32 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 if __name__ == '__main__':
-    import asyncio
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
-        app = ApplicationBuilder().token(os.getenv("BOT_TOKEN")).build()
+    app = ApplicationBuilder().token(os.getenv("BOT_TOKEN")).build()
 
-        conv_handler = ConversationHandler(
-            entry_points=[CommandHandler("start", start)],
-            states={
-                ROOM_TYPE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_room_type)],
-                LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_location)],
-                CLIENT_ISSUES: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_issues)],
-                CLIENT_GOALS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_goals)],
-                WHAT_DONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_done)],
-                SPECIAL_FEATURES: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_special)],
-                MEDIA_BEFORE: [
-                    MessageHandler(filters.PHOTO | filters.VIDEO, get_media_before),
-                    CommandHandler("next", next_to_after)
-                ],
-                MEDIA_AFTER: [
-                    MessageHandler(filters.PHOTO | filters.VIDEO, get_media_after),
-                    CommandHandler("next", next_to_visual)
-                ],
-                MEDIA_VISUAL: [
-                    MessageHandler(filters.PHOTO | filters.VIDEO, get_media_visual),
-                    CommandHandler("done", finish_media)
-                ],
-            },
-            fallbacks=[CommandHandler("cancel", cancel)]
-        )
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            ROOM_TYPE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_room_type)],
+            LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_location)],
+            CLIENT_ISSUES: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_issues)],
+            CLIENT_GOALS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_goals)],
+            WHAT_DONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_done)],
+            SPECIAL_FEATURES: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_special)],
+            MEDIA_BEFORE: [
+                MessageHandler(filters.PHOTO | filters.VIDEO, get_media_before),
+                CommandHandler("next", next_to_after)
+            ],
+            MEDIA_AFTER: [
+                MessageHandler(filters.PHOTO | filters.VIDEO, get_media_after),
+                CommandHandler("next", next_to_visual)
+            ],
+            MEDIA_VISUAL: [
+                MessageHandler(filters.PHOTO | filters.VIDEO, get_media_visual),
+                CommandHandler("done", finish_media)
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)]
+    )
 
-        app.add_handler(conv_handler)
-        await app.run_polling()
-
-    asyncio.run(main())
+    app.add_handler(conv_handler)
+    app.run_polling()
