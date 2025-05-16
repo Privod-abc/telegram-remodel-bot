@@ -13,6 +13,16 @@
       "dest": "api/index.py"
     },
     {
+      "src": "/set-webhook",
+      "methods": ["GET"],
+      "dest": "api/index.py"
+    },
+    {
+      "src": "/webhook-info",
+      "methods": ["GET"],
+      "dest": "api/index.py"
+    },
+    {
       "src": "/(.*)",
       "dest": "api/index.py"
     }
