@@ -2,7 +2,7 @@ import os
 import logging
 import nest_asyncio
 from flask import Flask, request
-from telegram import Update, Bot
+from telegram import Update, Bot, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
     Application, ApplicationBuilder, CommandHandler, MessageHandler,
     ContextTypes, ConversationHandler, filters
@@ -11,66 +11,77 @@ from telegram.ext import (
 nest_asyncio.apply()
 app = Flask(__name__)
 
-# Telegram constants
+# Telegram config
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(BOT_TOKEN)
 
-# Conversation states
+# States
 CLIENT_NAME, ROOM_TYPE, LOCATION, CLIENT_GOAL, WHAT_DONE, MATERIALS, FEATURES, GDRIVE = range(8)
 
 # Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Application
+# Bot app
 telegram_app: Application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-# Admin notify
+# Admin ID
+ADMIN_CHAT_ID = 130060469  # Replace if needed
+
+# Keyboard
+def get_main_keyboard():
+    return ReplyKeyboardMarkup([["/start"]], resize_keyboard=True)
+
+# Notify admin
 async def notify_admin(data: dict):
     summary = (
-        f"📢 *New Project Submitted!*\n\n"
-        f"👤 Client: {data.get('client_name') or '—'}\n"
-        f"🏗️ Room: {data.get('room_type') or '—'}\n"
-        f"📍 Location: {data.get('location') or '—'}\n"
-        f"🌟 Goal: {data.get('goal') or '—'}\n"
-        f"💪 Work done: {data.get('what_done') or '—'}\n"
-        f"🧱 Materials: {data.get('materials') or '—'}\n"
-        f"✨ Features: {data.get('features') or '—'}\n"
+        f"📢 *Новый проект!*\n\n"
+        f"👤 Клиент: {data.get('client_name') or '—'}\n"
+        f"🏗️ Комната: {data.get('room_type') or '—'}\n"
+        f"📍 Локация: {data.get('location') or '—'}\n"
+        f"🌟 Цель: {data.get('goal') or '—'}\n"
+        f"💪 Выполнено: {data.get('what_done') or '—'}\n"
+        f"🧱 Материалы: {data.get('materials') or '—'}\n"
+        f"✨ Особенности: {data.get('features') or '—'}\n"
         f"📂 Google Drive: {data.get('drive_link') or '—'}"
     )
-    await bot.send_message(chat_id=130060469, text=summary, parse_mode="Markdown")
+    await bot.send_message(chat_id=ADMIN_CHAT_ID, text=summary, parse_mode="Markdown")
 
-# Step functions
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
-    await update.message.reply_text("🙋‍♂️ What is the client’s name?")
-    return CLIENT_NAME
-
+# Helpers
 async def get_or_skip(update, context, key, next_state, prompt):
     text = update.message.text
-    context.user_data[key] = None if text.strip().lower() == "/skip" else text.strip()
+    context.user_data[key] = None if text.lower().strip() == "/skip" else text.strip()
     await update.message.reply_text(prompt)
     return next_state
 
-async def get_client_name(update, context): return await get_or_skip(update, context, "client_name", ROOM_TYPE, "🏗️ What room did you work on?")
-async def get_room_type(update, context): return await get_or_skip(update, context, "room_type", LOCATION, "📍 In which city and state was this project completed?")
-async def get_location(update, context): return await get_or_skip(update, context, "location", CLIENT_GOAL, "🌟 What was the client’s goal for this space?")
-async def get_goal(update, context): return await get_or_skip(update, context, "goal", WHAT_DONE, "💪 What did your team do in this project?")
-async def get_done(update, context): return await get_or_skip(update, context, "what_done", MATERIALS, "🧱 What materials were used? (names, colors)")
-async def get_materials(update, context): return await get_or_skip(update, context, "materials", FEATURES, "✨ Unique features or smart solutions?")
-async def get_features(update, context): return await get_or_skip(update, context, "features", GDRIVE, "📂 Paste the Google Drive folder link")
+# Handlers
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
+    await update.message.reply_text(
+        "🙋‍♂️ Как зовут клиента?",
+        reply_markup=ReplyKeyboardRemove()
+    )
+    return CLIENT_NAME
+
+async def get_client_name(update, context): return await get_or_skip(update, context, "client_name", ROOM_TYPE, "🏗️ Какое помещение было отремонтировано?")
+async def get_room_type(update, context): return await get_or_skip(update, context, "room_type", LOCATION, "📍 В каком городе и штате был сделан проект?")
+async def get_location(update, context): return await get_or_skip(update, context, "location", CLIENT_GOAL, "🌟 Что хотел изменить/достичь клиент? (например: устаревший ремонт, нерациональное пространство)")
+async def get_goal(update, context): return await get_or_skip(update, context, "goal", WHAT_DONE, "💪 Что было сделано вашей командой?")
+async def get_done(update, context): return await get_or_skip(update, context, "what_done", MATERIALS, "🧱 Какие материалы использовались? (названия, цвета)")
+async def get_materials(update, context): return await get_or_skip(update, context, "materials", FEATURES, "✨ Были ли реализованы интересные идеи или нестандартные решения?")
+async def get_features(update, context): return await get_or_skip(update, context, "features", GDRIVE, "📂 Вставьте ссылку на папку Google Drive.\nВнутри неё должны быть папки: before, after, 3D, drawings.")
+
 async def get_drive_link(update, context):
-    text = update.message.text
-    context.user_data["drive_link"] = None if text.strip().lower() == "/skip" else text.strip()
-    await update.message.reply_text("🎉 Project saved. Thank you!")
+    context.user_data["drive_link"] = update.message.text.strip()
+    await update.message.reply_text("🎉 Спасибо! Проект сохранён.", reply_markup=get_main_keyboard())
     await notify_admin(context.user_data)
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("❌ Project canceled.")
+    await update.message.reply_text("❌ Ввод проекта отменён.", reply_markup=get_main_keyboard())
     return ConversationHandler.END
 
-# Conversation setup
+# Setup conversation
 conv_handler = ConversationHandler(
     entry_points=[CommandHandler("start", start)],
     states={
@@ -89,11 +100,9 @@ conv_handler = ConversationHandler(
 
 telegram_app.add_handler(conv_handler)
 
-# Flask webhook route
+# Webhook handler
 @app.route("/", methods=["POST"])
 async def webhook():
-    if request.method == "POST":
-        update = Update.de_json(request.get_json(force=True), bot)
-        await telegram_app.process_update(update)
-        return "ok"
-    return "ping"
+    update = Update.de_json(request.get_json(force=True), bot)
+    await telegram_app.process_update(update)
+    return "ok"
