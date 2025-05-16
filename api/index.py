@@ -90,11 +90,8 @@ telegram_app.add_handler(ConversationHandler(
 def webhook():
     try:
         update = Update.de_json(request.get_json(force=True), bot)
-
-        # Обрабатываем update без остановки приложения
         asyncio.get_event_loop().create_task(telegram_app.process_update(update))
         return "ok", 200
-
     except Exception as e:
         logger.exception(f"Webhook error: {e}")
         return "error", 500
