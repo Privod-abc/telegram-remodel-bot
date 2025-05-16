@@ -1,7 +1,7 @@
 import os
 import logging
 import nest_asyncio
-from flask import Flask, request, Response
+from flask import Flask, request, Response, jsonify
 from telegram import Update, Bot
 from telegram.ext import (
     Application, ApplicationBuilder, CommandHandler, MessageHandler,
@@ -123,28 +123,61 @@ async def log_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 telegram_app.add_handler(MessageHandler(filters.ALL, log_update), group=-1)
 
-# === Webhook для Telegram (Flask) ===
-@app.route("/", methods=["POST"])
-def webhook():
-    logger.info("Получен запрос на webhook")
+# === Функция обработки обновлений Telegram ===
+def process_telegram_update(json_data):
+    logger.info("Обработка обновления Telegram")
     try:
-        # Логируем полученные данные для отладки
-        data = request.get_json(force=True)
-        logger.info(f"Получены данные: {data}")
-        
-        # Создаем объект Update и обрабатываем его асинхронно
-        update = Update.de_json(data, bot)
+        # Создаем объект Update
+        update = Update.de_json(json_data, bot)
         
         # Запускаем обработку обновления в отдельном потоке
-        def process_update():
+        def run_update():
             import asyncio
             asyncio.run(telegram_app.process_update(update))
         
-        Thread(target=process_update).start()
-        
-        return Response("ok", status=200)
+        Thread(target=run_update).start()
+        return True
     except Exception as e:
-        logger.error(f"Ошибка при обработке webhook: {e}")
+        logger.error(f"Ошибка при обработке обновления: {e}")
+        return False
+
+# === Webhook маршруты ===
+@app.route("/api", methods=["POST"])
+def api_webhook():
+    logger.info("Получен запрос на /api webhook")
+    try:
+        # Получаем данные запроса
+        json_data = request.get_json(force=True)
+        logger.info(f"Получены данные: {json_data}")
+        
+        # Обрабатываем обновление
+        success = process_telegram_update(json_data)
+        
+        if success:
+            return Response("ok", status=200)
+        else:
+            return Response("Failed to process update", status=500)
+    except Exception as e:
+        logger.error(f"Ошибка при обработке /api webhook: {e}")
+        return Response(f"error: {str(e)}", status=500)
+
+@app.route("/", methods=["POST"])
+def root_webhook():
+    logger.info("Получен запрос на корневой webhook")
+    try:
+        # Получаем данные запроса
+        json_data = request.get_json(force=True)
+        logger.info(f"Получены данные: {json_data}")
+        
+        # Обрабатываем обновление
+        success = process_telegram_update(json_data)
+        
+        if success:
+            return Response("ok", status=200)
+        else:
+            return Response("Failed to process update", status=500)
+    except Exception as e:
+        logger.error(f"Ошибка при обработке корневого webhook: {e}")
         return Response(f"error: {str(e)}", status=500)
 
 # === Простой маршрут для проверки работоспособности ===
@@ -153,7 +186,30 @@ def health_check():
     logger.info("Проверка работоспособности")
     return "Telegram bot is running!"
 
-# === Установка webhook при запуске ===
+# === Маршрут для установки вебхука ===
+@app.route("/set-webhook", methods=["GET"])
+def set_webhook_route():
+    logger.info("Получен запрос на установку webhook")
+    import asyncio
+    try:
+        result = asyncio.run(set_webhook())
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Ошибка при вызове set_webhook: {e}")
+        return jsonify({"error": str(e)})
+
+@app.route("/webhook-info", methods=["GET"])
+def webhook_info():
+    logger.info("Получен запрос на получение информации о webhook")
+    import asyncio
+    try:
+        result = asyncio.run(get_webhook_info())
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Ошибка при вызове get_webhook_info: {e}")
+        return jsonify({"error": str(e)})
+
+# === Установка webhook ===
 async def set_webhook():
     webhook_url = "https://telegram-remodel-bot.vercel.app/api"
     logger.info(f"Устанавливаем webhook на {webhook_url}")
@@ -162,21 +218,27 @@ async def set_webhook():
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(url, data={"url": webhook_url})
-            logger.info(f"Ответ от Telegram API: {response.text}")
-            return response.json()
+            result = response.json()
+            logger.info(f"Ответ от Telegram API: {result}")
+            return result
     except Exception as e:
         logger.error(f"Ошибка при установке webhook: {e}")
         return {"error": str(e)}
 
-# === Ручная установка webhook ===
-@app.route("/set-webhook", methods=["GET"])
-def set_webhook_route():
-    import asyncio
-    result = asyncio.run(set_webhook())
-    return result
+# === Получение информации о webhook ===
+async def get_webhook_info():
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/getWebhookInfo"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url)
+            result = response.json()
+            logger.info(f"Информация о webhook: {result}")
+            return result
+    except Exception as e:
+        logger.error(f"Ошибка при получении информации о webhook: {e}")
+        return {"error": str(e)}
 
-# === Инициализация при запуске ===
-# Для serverless окружения Vercel это не будет выполняться при каждом HTTP-запросе
+# === Инициализация ===
 try:
     import asyncio
     asyncio.run(set_webhook())
