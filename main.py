@@ -106,8 +106,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == '__main__':
     import asyncio
-
-    async def main():
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
         app = ApplicationBuilder().token(os.getenv("BOT_TOKEN")).build()
 
         conv_handler = ConversationHandler(
