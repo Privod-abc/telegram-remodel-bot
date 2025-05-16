@@ -1,5 +1,7 @@
+
 import os
 import logging
+import asyncio
 import nest_asyncio
 from flask import Flask, request
 from telegram import Update, Bot
@@ -20,9 +22,9 @@ CLIENT_NAME, ROOM_TYPE, LOCATION, CLIENT_GOAL, WHAT_DONE, MATERIALS, FEATURES, G
 
 # Logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("api.index")
 
-# Telegram application
+# Telegram app
 telegram_app: Application = ApplicationBuilder().token(BOT_TOKEN).build()
 
 # Admin notification
@@ -70,7 +72,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❌ Project canceled.")
     return ConversationHandler.END
 
-# Conversation handler
+# Conversation
 conv_handler = ConversationHandler(
     entry_points=[CommandHandler("start", start)],
     states={
@@ -89,9 +91,14 @@ conv_handler = ConversationHandler(
 
 telegram_app.add_handler(conv_handler)
 
-# Webhook endpoint (important for Vercel)
+# Fixed Flask webhook route for Vercel
 @app.route("/", methods=["POST"])
-async def webhook():
-    update = Update.de_json(request.get_json(force=True), bot)
-    await telegram_app.process_update(update)
-    return "ok"
+def webhook():
+    try:
+        update_data = request.get_json(force=True)
+        update = Update.de_json(update_data, bot)
+        asyncio.run(telegram_app.process_update(update))
+    except Exception as e:
+        logger.exception(f"Exception on / [POST]: {e}")
+        return "error", 500
+    return "ok", 200
