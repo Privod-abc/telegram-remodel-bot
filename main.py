@@ -1,6 +1,7 @@
 import os
 import logging
 import asyncio
+import nest_asyncio
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
@@ -36,12 +37,12 @@ async def get_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def get_issues(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['issues'] = update.message.text
-    await update.message.reply_text("🎯 What did the homeowner want to achieve or change?")
+    await update.message.reply_text("🌟 What did the homeowner want to achieve or change?")
     return CLIENT_GOALS
 
 async def get_goals(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['goals'] = update.message.text
-    await update.message.reply_text("🛠️ What did your team do in this project? (Key work completed)")
+    await update.message.reply_text("💪 What did your team do in this project? (Key work completed)")
     return WHAT_DONE
 
 async def get_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -138,8 +139,5 @@ async def main():
     await app.run_polling()
 
 if __name__ == '__main__':
-    import nest_asyncio
-    import asyncio
-
     nest_asyncio.apply()
-    asyncio.get_event_loop().run_until_complete(main())
+    asyncio.run(main())
